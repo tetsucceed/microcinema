@@ -1,28 +1,17 @@
 package main
 
 import (
+	"context"
+	"dbo"
 	"fmt"
 	"github.com/gin-gonic/gin"
+	"model"
 	"net/http"
 	"strconv"
 	"time"
 )
 
 var Addr = ":8080"
-
-type Movie struct {
-	ID          int       `json:"id"`
-	Name        string    `json:"name"`
-	Poster      string    `json:"poster"`
-	MovieUrl    string    `json:"movie_url"`
-	IsPaid      bool      `json:"is_paid"`
-	ReleaseDate time.Time `json:"release_date"`
-	Genre       string    `json:"genre"`
-}
-
-type MovieId struct {
-	Id string `uri:"id" binding:"required"`
-}
 
 func timeMustParse(year string) time.Time {
 	tm, err := time.Parse("2006", year)
@@ -33,26 +22,16 @@ func timeMustParse(year string) time.Time {
 }
 
 func movieListHandler(rc *gin.Context) {
-	var mt MovieId
+	var mt model.MovieId
 	err := rc.ShouldBindUri(&mt)
 	if err != nil {
 		fmt.Println("oops")
 	}
 
 	rc.Set("Content-Type", "application/json; charset=utf-8")
-	mm := []Movie{
-		Movie{0, "Бойцовский клуб", "/static/posters/fightclub.jpg",
-			"https://youtu.be/qtRKdVHc-cE", true, timeMustParse("1999"),
-			"triller"},
-		Movie{1, "Крестный отец", "/static/posters/father.jpg",
-			"https://youtu.be/ar1SHxgeZUc", false, timeMustParse("1988"),
-			"drama"},
-		Movie{2, "Криминальное чтиво", "/static/posters/pulpfiction.jpg",
-			"https://youtu.be/s7EdQ4FqbhY", true, timeMustParse("1996"),
-			"comedy"},
-	}
+	mm := dbo.LoadMovies()
 
-	if mt == (MovieId{}) {
+	if mt == (model.MovieId{}) {
 		rc.JSON(http.StatusOK, gin.H{"status": http.StatusOK, "response": mm})
 		return
 	} else {
@@ -68,6 +47,10 @@ func movieListHandler(rc *gin.Context) {
 }
 
 func main() {
+	dbo.GetConnectionDb()
+	defer dbo.DB.Close(context.Background())
+	dbo.ApplyMigration(dbo.DBUrl)
+
 	r := gin.Default()
 	group := r.Group("/api")
 	{
